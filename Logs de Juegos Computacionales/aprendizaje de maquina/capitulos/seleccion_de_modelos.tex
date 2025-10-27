@@ -1,0 +1,260 @@
+%!TEX root = ../notas_de_clase.tex
+
+\section{Selección y evaluación de modelos}
+
+Dado un conjunto de datos, existen muchos posibles modelos para poder realizar el aprendizaje, por lo que surge la pregunta natural de qué modelo elegir. Una respuesta rápida a esta pregunta sería elegir el modelo que mejor se ajuste a los datos en el entrenamiento. El problema de utilizar este criterio es el sobreajuste, el cual puede ser observado en la Figura \ref{fig:overfitting} donde se observa que en la tercera imagen, el modelo aprende oscilaciones que muy probablemente son generadas por los ruidos de las observaciones. 
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width = 0.9\linewidth]{img/cap4_ajuste.pdf}
+    \caption{Ejemplos de sub, sobre y correcto ajuste.}
+    \label{fig:overfitting}
+\end{figure}
+
+El problema de sobreajuste ocurre, por ejemplo, en el ajuste polinomial (donde se debe elegir un cierto grado de regresión para los datos) ya que es sabido, de acuerdo al teorema de interpolación polinómica de Lagrange, que para $n$ puntos siempre existirá un polinomio de grado menor a $n$ que pase exactamente por dichos puntos, por lo que es posible tener un error de ajuste nulo en los datos de entrenamiento, pero con un alto error de predicción en datos no vistos.\\
+
+Teniendo en cuenta lo anterior, se hace natural escoger el modelo que mejor se ajuste a datos de un conjunto de test, es decir, que no hayan estado en el conjunto de entrenamiento. Así, buscamos el modelo que logre \textbf{generalizar} lo aprendido en el entrenamiento a datos desconocidos. Aún teniendo en cuenta, se hace necesario definir métricas para determinar \textit{qué} es un buen modelo. Es esta la pregunta que se intentará resolver en este capítulo.
+
+\subsection{Descomposición sesgo-varianza}
+
+En el capítulo de regresión lineal se estudió el método de mínimos cuadrados regularizados, el cual generaba un regresor con un mayor error cuadrático medio (ECM) al evaluarlo dentro del conjunto de entrenamiento, pero un mejor desempeño que MC al evaluarlo fuera de muestra. Esto ocurría debido a que, si bien MCR perdía la propiedad de ser un estimador insesgado, la penalización en la norma del parámetro permitía disminuir la varianza del estimador, lo cual resultaba en una disminución del error de estimación debido a la descomposición sesgo-varianza.\\
+
+El objetivo de esta sección será probar dicha descomposición para un modelo general.
+
+%DESDE AQUÍ.
+
+
+\begin{definition}
+	Sea $\datos=\{(x_i,y_i)\}_{i=1}^n\subset\R^N\times\R$ un conjunto de observaciones generadas por una función desconocida $f:\R^N\to\R$ mediante $y=f(x)+\epsilon$ donde $\epsilon$ es una v.a. (ruido) con $\E(\epsilon)=0$ y $\text{Var}(\epsilon)=\sigma^2$. Sea $\hat{f}(\cdot|\datos)$ un estimador de $f$ determinado a partir de $\datos$, entonces, para un nuevo par $(x,y)$ se tienen las siguientes definiciones:
+	
+	\begin{itemize}
+		\item Error (cuadrático) esperado: $\E_\datos\left((y-\hat{f}(x|\datos))^2\right)$.
+		\item Sesgo del estimador: $\text{Bias}(\hat{f}(x|\datos)):= \E_\datos(\hat{f}(x|\datos)) - f(x) = \E_\datos(\hat{f}\left(x|\datos) - f(x)\right)$. Puede interpretarse como el error esperado del estimador.
+		\item Varianza del estimador: $\text{Var}(\hat{f}(x|\datos)) = \E_\datos\left(\left(\hat{f}(x|\datos)-\E_\datos(\hat{f}(x|\datos))\right)^2\right)$.
+		
+	\end{itemize}
+\end{definition}
+
+\begin{remark}
+Notar que el error cuadrático esperado $\E_\datos\left((y-\hat{f}(x|\datos))^2\right)$ no corresponde al error cuadrático medio (ECM) del estimador $\hat{f}(x|\datos)$ de $f(x)$, el cual viene dado por $\E_\datos\left((f(x)-\hat{f}(x|\datos))^2\right)$, más bien podría interpretarse como el ECM visto como un estimador de $y$, aunque esto no es del todo correcto ya que $y$ es aleatorio.
+\end{remark}
+
+\begin{remark}
+	En todas las definiciones anteriores, la esperanza es tomada con respecto a $\datos$, es decir, integra sobre los distintos $\{x_1,y_1\},\ldots,\{x_N,y_N\}$ generados a partir de la distribución conjunta $p(x,y)$.
+\end{remark}
+
+De las definiciones anteriores, es posible notar que la pregunta que buscamos responder en este capítulo tiene dos tipos de respuestas: 
+\begin{itemize}
+    \item \textbf{Selección de Modelos}: Estimar el rendimiento de distintos modelos para elegir el mejor.
+    \item \textbf{Validación de Modelos}: Habiendo elegido un modelo, estimar su error esperado en data desconocida. 
+\end{itemize}
+
+Para lograr estudiar ambas respuestas, es de gran utilidad el siguiente teorema:
+
+\begin{theorem}[descomposición sesgo-varianza] Sea $\hat{f}(x|\datos)$ un estimador de $f(x)$, entonces:
+
+\begin{equation}
+	\E_\datos\left((y-\hat{f}(x|\datos))^2\right) = \text{Bias}^2(\hat{f}(x|\datos)) + \text{Var}(\hat{f}(x|\datos)) + \sigma^2
+\end{equation}
+	
+\end{theorem}
+
+\begin{proof}
+
+Para evitar sobrecargar la notación, se utilizará $\hat{f}=\hat{f}(x|D)$, $f=f(x)$ y $\E=\E_\datos$. La demostración se hará forzando una completación de cuadrados y mostrando que los términos residuales son nulos para llegar a que $\E\left((y-\hat{f})^2\right) = \left(\E(\hat{f}) - f(x)\right)^2 + \E\left(\left(\hat{f}-\E(\hat{f})\right)^2\right) + \E\left(\left(\epsilon-\E(\epsilon)\right)^2\right)$.
+\begin{align*}
+	\E\left((y-\hat{f})^2\right) =& \E\left((f+\epsilon-\hat{f})^2\right) = \E\left(f^2+\epsilon^2+\hat{f}^2 +2f\epsilon - 2f\hat{f} - 2\epsilon \hat{f}\right)\\
+	=&\left(\E^2(\hat{f})-2f\E(\hat{f}) + f^2\right) + \E\left(\hat{f}^2-2\hat{f}\E(\hat{f})+\E^2(\hat{f})\right) + \E\left(\left(\epsilon-\E(\epsilon)\right)^2\right)\\
+	& - 2\E(\epsilon\hat{f})-2\E^2(\hat{f})+2\E(\hat{f})\E(\hat{f})\\
+	=& \left(\E(\hat{f}) - f(x)\right)^2 + \E\left(\left(\hat{f}-\E(\hat{f})\right)^2\right) + \E\left(\left(\epsilon-\E(\epsilon)\right)^2\right) - 2\E(\epsilon)\E(\hat{f})\\
+	= & \text{Bias}^2(\hat{f}(x|\datos)) + \text{Var}(\hat{f}(x|\datos)) + \sigma^2
+\end{align*}
+
+Donde se pudo usar $\E(\epsilon\hat{f})=\E(\epsilon)\E(\hat{f})$ debido a que $\hat{f}$ depende del espacio muestral $\datos$ y $\epsilon$ es el ruido asociado a una nueva muestra.
+
+\end{proof} 
+
+Esta descomposición muestra que la varianza intrínseca del ruido afectará directamente y de forma aditiva sobre el error de la predicción, imposibilitando realizar predicciones exactas bajo cualquier modelo aleatorio. Por otra parte, tal como se vio en mínimos cuadrados regularizados, se puede introducir sesgo en el modelo con el fin de disminuir la varianza y viceversa, lo cual crea la pregunta acerca de cuál es el par sesgo-varianza óptimo que minimiza el error total. Dicha pregunta se conoce como dilema sesgo-varianza (bias-variance tradeoff) y juega un papel importante en la selección de hiperparámetros del modelo.
+
+\newpage
+
+De esta forma, la combinación sesgo-varianza crea un error total convexo tal como se puede observar en la siguiente figura:
+
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width = 0.45\linewidth]{img/cap4_biasvariance.pdf}
+    \caption{Tradeoff entre el sesgo y la varianza. Se observa que el error total mínimo es alcanzado en un par $(sesgo,varianza)$ específico.} 
+\end{figure}
+
+
+\subsection{Validación cruzada}
+
+Una primera forma de elegir y evaluar un modelo fuera de muestra, consiste en particionar el conjunto de datos $\mathcal{D}$ en dos: un primer conjunto donde se realizará el entrenamiento, y otro donde se medirá el rendimiento del modelo de acuerdo a algún criterio predefinido (por ejemplo, el error cuadrático medio). Con el fin de evitar posibles sesgos provocados por una partición en específico, la evaluación de desempeño se debe realizar varias veces sobre conjuntos de validación distintos. De esta forma, al promediar los rendimientos de cada partición se obtiene un rendimiento estimado fuera de muestra, lo cual permite finalmente elegir un modelo, quedándose con aquel que reporte el menor error \textit{out-sample}. Las distintas formas de mezclar y particionar los datos se conocen como validación cruzada.
+
+\subsubsection{Validación cruzada exhaustiva}
+
+En este tipo de validación cruzada, se prueban todas las posibles permutaciones de los datos al particionar el conjunto $\mathcal{D}$. Se tienen 2 técnicas exhaustivas:
+
+\begin{itemize}
+	\item \textbf{leave $p$ out (LpOCV):} el conjunto $\mathcal{D}$ se particiona dejando $p$ elementos para validación y los $N-p$ elementos restantes se utilizan para entrenar el modelo. Este entrenamiento y cálculo de desempeño se repite $C_p^N=\frac{N!}{(N-p)!p!}$ veces, pasando por todos los posibles conjuntos de validación de tamaño $p$.
+	\item \textbf{leave one out (LOOCV):} corresponde al caso anterior con $p=1$. En este caso cada dato de $\mathcal{D}$ es utilizado como único elemento de validación mientras el resto de los datos se utiliza para entrenar.
+\end{itemize}
+
+\subsubsection{Validación cruzada no exhaustiva}
+
+\begin{itemize}
+	\item \textbf{$k$-fold:} el conjunto $\mathcal{D}$ es dividido en $k$ grupos de igual tamaño. Luego, uno de esos grupos es utilizado como validador y el resto como entranemiento. Esto se repite $k$ veces de forma de que todos los grupos sean validadores una y solo una vez.
+	\item \textbf{Monte Carlo CV:} se realizan particiones binarias aleatorias de $\mathcal{D}$. Se entrena y evalúa usando el par de conjuntos creados en cada partición.
+\end{itemize}
+
+\begin{remark}
+Una variante de la validación cruzada es dividir el conjunto $\datos$ en 3, donde los primeros dos conjuntos son utilizados para entrenamiento y validación, mientras que el tercero (conocido como test set) es utilizado para obtener una estimación real del desempeño fuera de muestra del modelo elegido a partir de los dos conjuntos anteriores. Esto se realiza ya que al considerar únicamente el desempeño en el conjunto de validación, por lo general se sobreestima el desempeño real fuera de muestra debido a que el modelo fue elegido precisamente tomando el que reporta el menor error dentro del conjunto de validación.\\
+
+Si bien no hay una regla estándar que indique cómo particionar el conjunto, una división usual es utilizar el 50\% para entrenamiento y 25\% para validación y test.
+\end{remark}
+
+\subsection{Selección de modelo}
+
+Si bien la técnica de validación cruzada es bastante efectiva, tiene la limitación de requerir una gran cantidad de datos para poder realizar la partición de $\datos$. Para los casos que en los que no se cuenta con una cantidad considerable de observaciones, se requieren herramientas más sofisticadas para poder tomar una decisión acerca de qué modelo elegir. Los dos criterios más usuales corresponden al criterio de información de Akaike y al criterio de información bayesiano.\\
+
+
+
+\subsubsection{Criterio de información de Akaike (AIC)}
+
+
+Sea $\datos=(x_i)_{i=1}^N$ un conjunto de observaciones generadas por una distribución desconocida perteneciente a una familia paramétrica cuyos parámetros están en $\Theta\subset\R^d$. Bajo este modelo, se puede utilizar el estimador de máxima verosimilitud:
+
+\begin{equation}
+	\hat{\theta} = \argmax_{\theta\in\Theta} L(\theta|\datos) =  \argmax_{\theta\in\Theta} l(\theta|\datos)
+\end{equation}
+
+Una forma de evaluar el desempeño real de este estimador es mediante el \emph{riesgo de predicción}, el cual se ve reflejado en la log-verosimilitud de $\hat{\theta}$ sobre todas las posibles observaciones: $\E(l(\hat{\theta}|x))$. Dado que solo se cuenta con una cantidad finita de muestras, solo es posible obtener un riesgo empírico. El criterio de información de Akaike (AIC) busca ajustar este riesgo para obtener un estimador asintóticamente insesgado del riesgo real. Para esto, se tienen las siguientes definiciones para el estimador de máxima verosimilitud $\hat{\theta}$:
+
+\begin{itemize}
+	\item \textbf{Riesgo empírico:} $R_\datos(\hat{\theta})=-\hat{l}$, donde $\hat{l}=l(\hat{\theta}|\datos)$ es la log-verosimilitud del EMV empírico.
+	\item \textbf{Riesgo real:} $R(\hat{\theta})=-\E(N\cdot l_0(\hat{\theta}))$, donde $l_0(\theta)=\E(l(\theta|x))$ corresponde a la log-verosimilitud de $\theta$ sobre todo el espacio muestral. Notar que se multiplica por $N$ ya que en el riesgo empírico no se normalizó por $N$.
+\end{itemize}
+
+
+\begin{definition}[AIC]
+	Sea $M$ un modelo estadístico $d$-paramétrico y $\datos=(x_i)_{i=1}^N$ un conjunto de observaciones. El AIC del modelo (aproximado por $\datos$) se define como
+	
+	\begin{equation}
+		AIC(M,\datos):=2d-2\log\left(\hat{L}(\datos)\right),
+	\end{equation}
+donde $\hat{L}(\datos)$ corresponde a la verosimilitud del EMV asociado a $\datos$, es decir:
+	
+	\begin{equation}
+		\hat{L}(\datos) = \prod_{i=1}^N p(x_i|\hat{\theta}),\text{ para } \hat{\theta} = \argmax_{\theta\in\Theta} L(\theta|\datos).
+	\end{equation}
+\end{definition}
+
+\subsubsection{Criterio de información bayesiano (BIC)}
+
+Otro enfoque para la selección de modelos corresponde al criterio de información bayesiano (o criterio de Schwarz). Dada una familia de modelos $\mathcal{M}$, se define un prior $p(m)$ para cada modelo $m\in\mathcal{M}$. Además, se define un prior $p(\theta|m)$ sobre los parámetros de cada modelo. El criterio de información bayesiano (BIC) elige al mejor modelo de acuerdo a la posterior $p(m|\datos)$, la cual viene dada de acuerdo al teorema de Bayes:
+
+\begin{equation}
+	p(m|\datos)=\frac{p(\datos|m)p(m)}{p(\datos)}\propto p(\datos|m)p(m).
+\end{equation}
+
+De forma similar al criterio de Akaike, se puede calcular la verosimilitud del modelo $p(\datos|m)$ mediante aproximaciones de Taylor, probando que es independiente del prior. La derivación de $p(\datos|m)$ lleva a la siguiente definición:
+
+\begin{definition}[BIC]
+	Sea $M$ un modelo estadístico $d$-paramétrico y $\datos=(x_i)_{i=1}^N$ un conjunto de observaciones. El BIC del modelo (aproximado por $\datos$) se define como
+	
+	\begin{equation}
+		BIC(M,\datos):= d\cdot\log(N) - 2\log\left(\hat{L}(\datos)\right)
+	\end{equation}
+	
+	Donde nuevamente $\hat{L}(\datos)$ corresponde a la verosimilitud del EMV asociado a $\datos$.
+\end{definition}
+
+En este caso, se vuelve a elegir el modelo que presente el menor BIC. Se observa que, al igual que AIC, BIC contiene una penalización sobre el número de parámetros por lo que también evita el sobreajuste a los datos.
+
+Si bien existen otros métodos de selección de modelo (DIC, WAIC, entre otros), estos tienen una formulación más compleja que se escapa del alcance de este curso ya que se requieren herramientas adicionales como MCMC para el cálculo de distribuciones posteriores. Una derivación de AIC y BIC se puede encontrar en el apunte de Estadística.
+
+\subsection{Evaluación de modelos}
+Una vez elegido el mejor modelo de acuerdo a un criterio establecido (AIC o BIC), es deseable poder conocer el desempeño de dicho modelo. Existen varias formas de evaluar un modelo, una de ella podría ser simplemente evaluar la precisión de sus predicciones. A veces es natural fijarse en la precisión, como en los problemas de pronóstico. Otras veces la precisión es importante para evaluar diferentes modelos y elegir uno de ellos. En esta sección presentaremos dos maneras distintas de evaluar modelos, cada forma sirve en distintos escenarios, los cuales se discutirán a través de la predicción puntal, que resume la predicción de un conjunto de datos en una solo valor.
+
+\subsubsection{Error cuadrático medio}
+
+El ajuste del modelo a nuevos datos se puede resumir en una predicción puntual llamada error cuadrático medio, el cual está definido por:
+
+\begin{equation}
+MSE(\theta) = \frac{1}{n}\sum_{i=1}^N (y_i-\mathbb{E}(y_i|\theta))^2
+\end{equation}
+
+o su versión ponderada:
+
+\begin{equation}
+MSE(\theta) = \frac{1}{n}\sum_{i=1}^N \frac{(y_i-\mathbb{E}(y_i|\theta))^2}{\mathbb{V}\text{ar}(y_i|\theta)}
+\end{equation}
+
+Esta forma de medir el error tiene la ventaja de ser fácilmente computable e interpretable, pero no es apropiada para modelos que están lejos de la distribución normal.
+
+\subsubsection{log-densidad predictiva o log-verosimilitud}
+Otra forma de realizar esta evaluación es utilizando el estadístico \emph{log-densidad preditiva} $\log p(y|\theta)$ el cual es proporcional a error cuadrático medio si el modelo es normal con varianza constante. Estudiaremos el caso de un solo punto, para luego extrapolar a más de un punto.\\
+
+\textbf{Predictive accuracy para un punto:} sea $f$ el modelo real, $y$ las observaciones (es decir, una realización del dataset $y$ de la distribución $f(y)$), y llamaremos $\tilde{y}$ a la data futura o un dataset alternativos que podemos ver. El ajuste predictivo out-of-sample para un nuevo punto $\tilde{y}_i$ está dado por:
+
+\begin{equation}
+\log p_{\text{post}}(\tilde{y}_i) = \log \mathbb{E}[p(\tilde{y}_i|\theta)] = \log \int p(\tilde{y}_i|\theta)p_{\text{post}}(\theta)d\theta
+\end{equation}
+
+\textbf{Promedio de las distribuciones para un punto:} al tener un dato nuevo $\tilde{y}_i$ entonces se puede calcular el la log-densidad predictiva (elpd, por su sigla en inglés) para el nuevo punto:
+\begin{align}
+\notag \text{elpd} & = \mathbb{E}_f[\log p_{\text{post}}(\tilde{y}_i)]\\
+& = \int \log p_{\text{post}}(\tilde{y}_i) f(\tilde{y}_i)d\tilde{y}
+\end{align}
+
+\textbf{Promedio de las distribuciones para datasets futuros:} como usualmente, no se tiene solo un punto, se debe realizar la suma sobre el conjunto de puntos, calculando así la log-densidad predicitiva puntual (elppd, por su sigla en inglés).
+
+\begin{align}
+\text{elppd} & = \sum_{i=1}^N \mathbb{E}_f[\log p_{\text{post}}(\tilde{y}_i)]
+\end{align}
+
+En la práctica, como siempre se tiene la distribución de todos los modelos y la expresión anterior requiere de esto, se suele calcular el estadístico sobre una estimación de un modelo $\hat{\theta}$ (como por ejemplo, el máximo de la función de verosimilitud):
+
+\begin{align}
+\text{elppd}|\hat{\theta} & = \sum_{i=1}^N \mathbb{E}_f[\log p_{\text{post}}(\tilde{y}_i|\hat{\theta})]
+\end{align}
+
+Finalmente, una última extensión de este estadístico es cuando se puede tener \emph{draws} de la posterior, es decir, tenemos $\{ \theta^s\}_{s=1}^S$, entonces el lppd computado es:
+
+\begin{equation}
+\text{computed lppd} = \sum_{i=1}^N \left( \frac{1}{S} \sum_{s=1}^S p(y_i|\theta^s)\right)
+\end{equation}
+
+
+\subsection{Promedio de modelos}
+Hay veces que no queremos elegir un solo modelo, puesto que quizás nos interesan las estimaciones de dos o más modelos. Para estos casos, se puede utilizar la técnica de \emph{model averaging}, la cual consiste en utilizar una combinación lineal de distintos modelos.\\
+
+\newpage
+
+Sea $\mathcal{M}$ un conjunto de modelos donde cada modelo $m\in\mathcal{M}$ tiene asociada una distribución $\mu_m$ sobre el espacio muestral. Un promedio de modelos $\hat{\mu}$ es una combinación convexa de los modelos de $\mathcal{M}$, es decir:
+
+\begin{equation}
+\hat{\mu} = \sum_{m\in \mathcal{M}} c(m) \mu_m
+\end{equation}
+
+Donde los pesos $\left(c(m)\right)_{m\in\mathcal{M}}\subset\R_+$ cumplen que $\sum_{m\in \mathcal{M}} c(m) = 1$.\\
+
+La principal dificultad para elegir los pesos, está en que se debe asegurar que la suma de los pesos sea unitaria y que estos sean todos positivos. Una forma de asegurar esto es aplicar una función $f$ positiva sobre una función $g$ (\emph{score}) que evalúe el modelo, de modo que:
+
+\begin{equation}
+\sum_{m\in \mathcal{M}} (f\circ g)(m) > 0
+\end{equation}
+
+De esta forma, se pueden definir los pesos mediante normalización:
+
+\begin{equation}
+c(s) = \frac{(f\circ g)(s)}{\sum_{m\in \mathcal{M}} (f\circ g)(m)}
+\end{equation}
+
+Para la función $g$ se pueden utilizar los criterios AIC o BIC ya que entregan una evaluación del desempeño relativo del modelo. Por otra parte, usando $f(x)=\exp(x)$ los pesos $\left(c(m)\right)_{m\in\mathcal{M}}$ vienen dados por la función softmax:
+
+
+
+\begin{align}
+c_{AIC}(s) = \frac{\exp\{ \frac{1}{2} \text{AIC}(s)\}}{\sum_{m\in \mathcal{M}} \exp\{ \frac{1}{2} \text{AIC}(m)\}} & & c_{BIC}(s) = \frac{\exp\{ \frac{1}{2} \text{BIC}(s)\}}{\sum_{m\in \mathcal{M}} \exp\{ \frac{1}{2} \text{BIC}(m)\}}
+\end{align}
